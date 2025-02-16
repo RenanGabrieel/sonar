@@ -60,13 +60,17 @@ public final class FallbackInjectedChannelInitializer extends ChannelInitializer
       throw new ReflectiveOperationException(throwable);
     }
 
+    inject(channel, sonarPipelineInjector);
+  }
+
+  public static void inject(final @NotNull Channel channel, final Consumer<ChannelPipeline> sonarPipelineInjector) {
     // Inject Sonar's channel handler into the pipeline;
     // Also make sure the player is not a fake player to avoid compatibility issues
     if (channel.isActive() && !FakeChannelUtil.isFakeChannel(channel)) {
       final FallbackInboundHandler inboundHandler = new FallbackInboundHandler(sonarPipelineInjector);
       // We need to be careful on Bukkit, as the encoder can be different
-      if (Sonar.get().getPlatform() == SonarPlatform.BUKKIT) {
-        final String encoder = Sonar.get().getPlatform().getEncoder().apply(channel.pipeline());
+      if (Sonar.get0().getPlatform() == SonarPlatform.BUKKIT) {
+        final String encoder = Sonar.get0().getPlatform().getEncoder().apply(channel.pipeline());
         channel.pipeline().addBefore(encoder, FALLBACK_INBOUND_HANDLER, inboundHandler);
       } else {
         channel.pipeline().addFirst(FALLBACK_INBOUND_HANDLER, inboundHandler);
