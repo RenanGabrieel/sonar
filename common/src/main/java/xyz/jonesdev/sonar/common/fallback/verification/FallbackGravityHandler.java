@@ -64,9 +64,13 @@ public final class FallbackGravityHandler extends FallbackVerificationHandler {
     // Make sure the client knows that we're sending chunks next
     if (user.getProtocolVersion().greaterThanOrEquals(ProtocolVersion.MINECRAFT_1_20_3)) {
       user.delayedWrite(START_WRITING_CHUNKS);
+
+      for (final FallbackPacket section : EMPTY_CHUNK_DATA) {
+        user.delayedWrite(section);
+      }
+    } else {
+      user.delayedWrite(EMPTY_CHUNK_DATA[0]);
     }
-    // Teleport player into an empty world by sending an empty chunk packet
-    user.delayedWrite(EMPTY_CHUNK_DATA);
     // Spawn the invisible platform below the player
     if (enableCollisionsCheck) {
       final int index = RANDOM.nextInt(BLOCKS_PACKETS.length);
@@ -89,9 +93,9 @@ public final class FallbackGravityHandler extends FallbackVerificationHandler {
 
   private final FallbackPreJoinHandler preJoinHandler;
   private final boolean enableGravityCheck, enableCollisionsCheck;
-  private boolean teleported, canFall, checkMovement;
+  private boolean teleported, canFall, checkMovement, expectClientTick, expectTeleportPosRot;
   private double y, deltaY, blockHeight;
-  private int movementTick, clientTick, expectedTeleportId = FIRST_TELEPORT_ID;
+  private int movementTick, tickWithoutMove, expectedTeleportId = FIRST_TELEPORT_ID;
   private SetPlayerPositionRotationPacket lastPositionPacket;
 
   @Override
@@ -101,8 +105,14 @@ public final class FallbackGravityHandler extends FallbackVerificationHandler {
       final SetPlayerPositionRotationPacket position = (SetPlayerPositionRotationPacket) packet;
       if (teleported) {
         handleMovement(position.getX(), position.getY(), position.getZ(), position.isOnGround(), true);
-      } else if (user.getProtocolVersion().greaterThanOrEquals(ProtocolVersion.MINECRAFT_1_21_2)) {
+      } else if (user.getProtocolVersion().equals(ProtocolVersion.MINECRAFT_1_21_2)) {
         lastPositionPacket = position;
+        return;
+      }
+      if (expectTeleportPosRot) {
+        expectTeleportPosRot = false;
+      } else {
+        checkClientTick();
       }
     } else if (packet instanceof SetPlayerPositionPacket) {
       // Make sure the player has teleported before checking for position packets
@@ -110,6 +120,7 @@ public final class FallbackGravityHandler extends FallbackVerificationHandler {
         final SetPlayerPositionPacket position = (SetPlayerPositionPacket) packet;
         handleMovement(position.getX(), position.getY(), position.getZ(), position.isOnGround(), false);
       }
+      checkClientTick();
     } else if (packet instanceof ConfirmTeleportationPacket) {
       final ConfirmTeleportationPacket confirmTeleport = (ConfirmTeleportationPacket) packet;
 
@@ -119,29 +130,56 @@ public final class FallbackGravityHandler extends FallbackVerificationHandler {
       checkState(confirmTeleport.getTeleportId() == expectedTeleportId,
         "expected TP ID " + expectedTeleportId + ", but got " + confirmTeleport.getTeleportId());
 
+      final boolean sendPosRotBefore = user.getProtocolVersion().equals(ProtocolVersion.MINECRAFT_1_21_2);
+      checkState(sendPosRotBefore ? lastPositionPacket != null : !expectTeleportPosRot,
+        "expected position rotation but got teleport confirm.");
+      if (!sendPosRotBefore) {
+        expectTeleportPosRot = true;
+      }
+
       // The first teleport ID is not useful for us in this context, skip it
       if (expectedTeleportId == FIRST_TELEPORT_ID) {
-        lastPositionPacket = null;
         expectedTeleportId = SECOND_TELEPORT_ID;
       } else {
         // Enable the movement checks
         teleported = true;
 
-        if (user.getProtocolVersion().greaterThanOrEquals(ProtocolVersion.MINECRAFT_1_21_2)) {
-          checkState(lastPositionPacket != null, "excepted position rotation but got teleport confirm.");
+        if (sendPosRotBefore) {
           handleMovement(
             lastPositionPacket.getX(), lastPositionPacket.getY(), lastPositionPacket.getZ(),
             lastPositionPacket.isOnGround(), true);
         }
       }
+      lastPositionPacket = null;
     } else if (packet instanceof ClientInformationPacket
       || packet instanceof PluginMessagePacket) {
       // Pass these packets back to the login handler
       // TODO: recode this
       preJoinHandler.handle(packet);
     } else if (packet instanceof ClientTickEndPacket) {
-      clientTick++;
+      lastPositionPacket = null;
+      if (!expectClientTick) {
+        // Is it impossible for the client to not move during the gravity check?
+        if (++tickWithoutMove >= 20) {
+          //failOrShowCaptcha("expected position but got client tick end.");
+        }
+      } else {
+        tickWithoutMove = 0;
+        expectClientTick = false;
+      }
     }
+  }
+
+  private void checkClientTick() {
+    if (user.getProtocolVersion().lessThan(ProtocolVersion.MINECRAFT_1_21_2)) {
+      return;
+    }
+    if (expectClientTick) {
+      failOrShowCaptcha("expected client tick end but got position.");
+    } else {
+      expectClientTick = true;
+    }
+    tickWithoutMove = 0; // lag may cause some problems :(
   }
 
   private void markSuccess() {
@@ -194,18 +232,14 @@ public final class FallbackGravityHandler extends FallbackVerificationHandler {
     }
 
     // Ensure that the player's Y coordinate is above the collision platform
-    checkState(y >= PLATFORM_Y_POSITION,
-      "fell through blocks: " + y + "/" + deltaY + "/" + movementTick);
+    if (y < PLATFORM_Y_POSITION) {
+      failOrShowCaptcha("fell through blocks: " + y + "/" + deltaY + "/" + movementTick);
+    }
 
     // The player is not allowed to move away from the collision platform.
     // This should not happen unless the max movement tick is configured to a high number.
     checkState(Math.abs(Math.abs(x) - BLOCKS_PER_ROW) < BLOCKS_PER_ROW, "illegal x offset: " + x);
     checkState(Math.abs(Math.abs(z) - BLOCKS_PER_ROW) < BLOCKS_PER_ROW, "illegal z offset: " + z);
-
-    // Check if the client is ticking correctly
-    if (user.getProtocolVersion().greaterThanOrEquals(ProtocolVersion.MINECRAFT_1_21_2)) {
-      checkState(clientTick >= movementTick, "invalid ticking: " + clientTick + "/" + movementTick);
-    }
 
     if (!onGround) {
       // The deltaY is 0 whenever the player sends their first position packet.

@@ -133,8 +133,6 @@ verification:
 
     # 用于检查用户名是否有效的正则表达式
     valid-name-regex: ^[a-zA-Z0-9_]+$
-    # 用于检查客户端语言(例如 zh_CN)的正则表达式
-    valid-locale-regex: ^[a-zA-Z_]+$
 
   # 开启后 玩家将在验证成功后被重定向到指定的服务器
   # 该功能由 Mojang 在 Minecraft 1.20.5 版本中引入
@@ -182,13 +180,15 @@ verification:
   # Sonar 是否应该检查来自 Geyser 的(基岩版)玩家?
   # 此功能是实验性的. 请报告任何因为误判而导致无法通过检查的问题
   # 如果关闭该选项 Sonar 将不检查这些玩家以便直接连接到服务器.
-  check-geyser-players: true
+  check-geyser-players: false
   # 播放器断开连接前停止发送数据包的时间
   # (该值为毫秒. 1秒等于1000毫秒.)
   read-timeout: 8000
   # 服务器在断开玩家连接前停止发送数据包的时间
   # (该值为毫秒. 1秒等于1000毫秒.)
   write-timeout: 10000
+  # The maximum number of packets the client is allowed to send in total (during verification).
+  max-packets: 325
   # 当玩家在还未通过检查的情况下断开连接后需要等待多少毫秒才可以重新连接?
   # (该值为毫秒. 1秒等于1000毫秒.)
   rejoin-delay: 5000

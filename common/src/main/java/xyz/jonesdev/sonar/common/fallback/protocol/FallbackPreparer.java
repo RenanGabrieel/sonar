@@ -35,7 +35,6 @@ import xyz.jonesdev.sonar.common.fallback.protocol.dimension.DimensionRegistry;
 import xyz.jonesdev.sonar.common.fallback.protocol.dimension.DimensionType;
 import xyz.jonesdev.sonar.common.fallback.protocol.entity.EntityType;
 import xyz.jonesdev.sonar.common.fallback.protocol.item.ItemType;
-import xyz.jonesdev.sonar.common.fallback.protocol.packets.configuration.FinishConfigurationPacket;
 import xyz.jonesdev.sonar.common.fallback.protocol.packets.configuration.RegistryDataPacket;
 import xyz.jonesdev.sonar.common.fallback.protocol.packets.login.LoginSuccessPacket;
 import xyz.jonesdev.sonar.common.fallback.protocol.packets.play.*;
@@ -77,8 +76,18 @@ public class FallbackPreparer {
   public final FallbackPacket NO_MOVE_ABILITIES_BEDROCK = new PlayerAbilitiesPacket(0x06, 0, 0);
   public final FallbackPacket CAPTCHA_POSITION = new FallbackPacketSnapshot(new SetPlayerPositionRotationPacket(
     SPAWN_X_POSITION, 10000, SPAWN_Z_POSITION, 0, 90, 0, 0, false, false, true));
-  public final FallbackPacket EMPTY_CHUNK_DATA = new FallbackPacketSnapshot(new ChunkDataPacket(0, 0));
-  public final FallbackPacket FINISH_CONFIGURATION = new FinishConfigurationPacket();
+  // I think the people working at Microsoft are actually the *real* ultimate trolls of the internet!
+  public final FallbackPacket[] EMPTY_CHUNK_DATA = new FallbackPacket[]{
+    new FallbackPacketSnapshot(new ChunkDataPacket(0, 0)),
+    new FallbackPacketSnapshot(new ChunkDataPacket(0, 1)),
+    new FallbackPacketSnapshot(new ChunkDataPacket(0, -1)),
+    new FallbackPacketSnapshot(new ChunkDataPacket(1, 0)),
+    new FallbackPacketSnapshot(new ChunkDataPacket(1, 1)),
+    new FallbackPacketSnapshot(new ChunkDataPacket(1, -1)),
+    new FallbackPacketSnapshot(new ChunkDataPacket(-1, 0)),
+    new FallbackPacketSnapshot(new ChunkDataPacket(-1, 1)),
+    new FallbackPacketSnapshot(new ChunkDataPacket(-1, -1))
+  };
   public final FallbackPacket PRE_JOIN_KEEP_ALIVE = new FallbackPacketSnapshot(new KeepAlivePacket(PRE_JOIN_KEEP_ALIVE_ID));
   public final FallbackPacket[] REGISTRY_SYNC_1_20 = new FallbackPacket[] {
     new FallbackPacketSnapshot(new RegistryDataPacket(DimensionRegistry.CODEC_1_20, null, null))};
@@ -86,6 +95,7 @@ public class FallbackPreparer {
   public final FallbackPacket[] REGISTRY_SYNC_1_21 = RegistryDataPacket.of(DimensionRegistry.CODEC_1_21);
   public final FallbackPacket[] REGISTRY_SYNC_1_21_2 = RegistryDataPacket.of(DimensionRegistry.CODEC_1_21_2);
   public final FallbackPacket[] REGISTRY_SYNC_1_21_4 = RegistryDataPacket.of(DimensionRegistry.CODEC_1_21_4);
+  public final FallbackPacket[] REGISTRY_SYNC_1_21_5 = RegistryDataPacket.of(DimensionRegistry.CODEC_1_21_5);
   public final FallbackPacket START_WRITING_CHUNKS = new GameEventPacket(13, 0);
   public final static FallbackPacket INVALID_HELD_ITEM_SLOT = new SetHeldItemPacket(-1);
   public final FallbackPacket RANDOM_KEEP_ALIVE = new FallbackPacketSnapshot(new KeepAlivePacket(RANDOM.nextInt()));
@@ -98,11 +108,11 @@ public class FallbackPreparer {
   public static final FallbackPacket REMOVE_VEHICLE = new RemoveEntitiesPacket(VEHICLE_ENTITY_ID);
   public static final FallbackPacket SET_VEHICLE_PASSENGERS = new FallbackPacketSnapshot(
     new SetPassengersPacket(VEHICLE_ENTITY_ID, PLAYER_ENTITY_ID));
+  public FallbackPacket[] incorrectCaptcha;
 
   public FallbackPacket loginSuccess;
   public FallbackPacket welcomeMessage;
   public FallbackPacket enterCodeMessage;
-  public FallbackPacket incorrectCaptcha;
   public static FallbackPacket joinGame;
   public FallbackPacket defaultSpawnPosition;
   public FallbackPacket spawnPosition;
@@ -228,11 +238,14 @@ public class FallbackPreparer {
         MiniMessage.miniMessage().deserialize(
           Sonar.get0().getConfig().getMessagesConfig().getString("verification.captcha.enter"),
           Placeholder.component("prefix", Sonar.get0().getConfig().getPrefix())))));
-      incorrectCaptcha = new FallbackPacketSnapshot(new SystemChatPacket(new ComponentHolder(
-        MiniMessage.miniMessage().deserialize(
-          Sonar.get0().getConfig().getMessagesConfig().getString("verification.captcha.incorrect"),
-          Placeholder.component("prefix", Sonar.get0().getConfig().getPrefix())))));
-
+      incorrectCaptcha = new FallbackPacket[Sonar.get0().getConfig().getVerification().getMap().getMaxTries()];
+      for (int i = 0; i < incorrectCaptcha.length; i++) {
+        incorrectCaptcha[i] = new FallbackPacketSnapshot(new SystemChatPacket(new ComponentHolder(
+          MiniMessage.miniMessage().deserialize(
+            Sonar.get0().getConfig().getMessagesConfig().getString("verification.captcha.incorrect"),
+            Placeholder.component("prefix", Sonar.get0().getConfig().getPrefix()),
+            Placeholder.unparsed("attempts-left", String.valueOf(i + 1))))));
+      }
       // Prepare countdown
       xpCountdown = new FallbackPacket[Sonar.get0().getConfig().getVerification().getMap().getMaxDuration() / 1000];
 
@@ -272,11 +285,13 @@ public class FallbackPreparer {
       + (xpCountdown == null ? 0 : xpCountdown.length) * 20 + 5
       + Sonar.get0().getConfig().getVerification().getVehicle().getMinimumPackets() * 4
       + Sonar.get0().getConfig().getVerification().getMap().getMaxTries()
-      + 150 /* some arbitrary leeway */;
+      + Sonar.get0().getConfig().getVerification().getMaxPacketCount();
   }
 
   public static FallbackPacket[] getRegistryPackets(final @NotNull ProtocolVersion protocolVersion) {
-    if (protocolVersion.greaterThanOrEquals(ProtocolVersion.MINECRAFT_1_21_4)) {
+    if (protocolVersion.greaterThanOrEquals(ProtocolVersion.MINECRAFT_1_21_5)) {
+      return REGISTRY_SYNC_1_21_5;
+    } else if (protocolVersion.greaterThanOrEquals(ProtocolVersion.MINECRAFT_1_21_4)) {
       return REGISTRY_SYNC_1_21_4;
     } else if (protocolVersion.greaterThanOrEquals(ProtocolVersion.MINECRAFT_1_21_2)) {
       return REGISTRY_SYNC_1_21_2;

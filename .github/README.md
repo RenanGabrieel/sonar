@@ -26,6 +26,12 @@
   [License](https://github.com/jonesdevelopment/sonar/?tab=readme-ov-file#license)
 </div>
 
+> ### Notice about Sonar 3.0
+> 
+> We're excited to announce the public release of Sonar 3.0.
+> If you are interested, please check out https://sonar.top/. You can read more about what sets Sonar 3.0 apart from Sonar 2.0 [here](<https://docs.sonar.top/faq>).
+> If you want more robust protection, better performance, and awesome new features, check out Sonar 3.0!
+
 ## Design and Goal
 * Effective, lightweight, and easy-to-use
 * No unnecessary features and clean code
@@ -52,6 +58,10 @@ If you or one of your players experiences a false positive, make sure to report 
 Massive thanks to the sponsors of Sonar who help keep this project running:
 
 <a href="https://github.com/Hydoxl"><img src="https://images.weserv.nl/?url=avatars.githubusercontent.com/u/107579333?v=4&h=50&w=50&fit=cover&mask=circle&maxage=7d" alt="logo" align="center"></a>
+
+### Past Sponsors
+
+<a href="https://github.com/ItzErpandX"><img src="https://images.weserv.nl/?url=avatars.githubusercontent.com/u/84748484?v=4?s=400?v=4&h=50&w=50&fit=cover&mask=circle&maxage=7d" alt="logo" align="center"></a>
 
 ## Building
 If you want to build your own version of Sonar, please take a look at the [Sonar building documentation](https://docs.jonesdev.xyz/development/building).

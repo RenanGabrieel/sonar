@@ -177,7 +177,7 @@ public final class SonarConfiguration {
     verification.map.timing = Verification.Timing.valueOf(generalConfig.getString("verification.checks.map-captcha.timing"));
     verification.map.precomputeAmount = clamp(generalConfig.getInt("verification.checks.map-captcha.precompute"), 10, 5000);
     verification.map.maxDuration = clamp(generalConfig.getInt("verification.checks.map-captcha.max-duration"), 5000, 360000);
-    verification.map.maxTries = generalConfig.getInt("verification.checks.map-captcha.max-tries");
+    verification.map.maxTries = clamp(generalConfig.getInt("verification.checks.map-captcha.max-tries"), 1, 100);
     verification.map.alphabet = generalConfig.getString("verification.checks.map-captcha.alphabet");
     verification.map.backgroundImage = null;
 
@@ -198,7 +198,6 @@ public final class SonarConfiguration {
     verification.timeOfDay = clamp(generalConfig.getInt("verification.time-of-day"), 0, 24000);
     verification.gamemode = Verification.Gamemode.valueOf(generalConfig.getString("verification.gamemode"));
     verification.validNameRegex = Pattern.compile(generalConfig.getString("verification.checks.valid-name-regex"));
-    verification.validLocaleRegex = Pattern.compile(generalConfig.getString("verification.checks.valid-locale-regex"));
 
     verification.checkGeyser = generalConfig.getBoolean("verification.check-geyser-players");
     verification.logConnections = generalConfig.getBoolean("verification.log-connections");
@@ -206,6 +205,7 @@ public final class SonarConfiguration {
     verification.debugXYZPositions = generalConfig.getBoolean("verification.debug-xyz-positions");
     verification.readTimeout = clamp(generalConfig.getInt("verification.read-timeout"), 1000, 30000);
     verification.writeTimeout = clamp(generalConfig.getInt("verification.write-timeout"), 1000, 30000);
+    verification.maxPacketCount = clamp(generalConfig.getInt("verification.max-packets"), 200, 9999);
     verification.reconnectDelay = clamp(generalConfig.getInt("verification.rejoin-delay"), 0, 100000);
     verification.rememberTime = clamp(generalConfig.getInt("verification.remember-time"), 0, 86400000);
     verification.blacklistTime = clamp(generalConfig.getInt("verification.blacklist-time"), 0, 86400000);
@@ -418,10 +418,10 @@ public final class SonarConfiguration {
     private boolean logDuringAttack;
     private boolean debugXYZPositions;
     private Pattern validNameRegex;
-    private Pattern validLocaleRegex;
 
     private int readTimeout;
     private int writeTimeout;
+    private int maxPacketCount;
     private int reconnectDelay;
     private int rememberTime;
     private int blacklistTime;
